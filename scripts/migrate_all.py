@@ -377,10 +377,11 @@ def main():
     parser.add_argument('--schema', default=None, help='(legacy) Comma-separated list of source schemas to include when --tables is not provided')
     parser.add_argument('--source-schema', default=None, help='Comma-separated list of source schemas to include when --tables is not provided')
     parser.add_argument('--target-schema', default=None, help='Postgres target schema to create tables in (default: public)')
+    parser.add_argument('--create-only', default=None, help='Comma-separated list of tables to only create schema for (no data). Use schema.table or table names')
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
-    env = load_dotenv(str(repo_root / '.env'))
+    env = load_dotenv(str('.env'))
 
     export_dir = args.export_dir or env.get('EXPORT_DIR') or str(repo_root / 'exports')
     os.makedirs(export_dir, exist_ok=True)
@@ -432,6 +433,16 @@ def main():
     # Determine target postgres schema: CLI -> .env -> default 'public'
     target_schema = args.target_schema or env.get('PG_SCHEMA') or 'public'
 
+    # Parse create-only list into a normalized set of lowercase identifiers
+    create_only_set = set()
+    if args.create_only:
+        for t in args.create_only.split(','):
+            tt = t.strip()
+            if not tt:
+                continue
+            # Normalize to either 'schema.table' or just 'table' in lowercase
+            create_only_set.add(tt.strip().lower())
+
     tables = get_tables_list(mssql_conn, database, include_list, schema_list)
     if not tables:
         print('No tables found to migrate')
@@ -447,6 +458,20 @@ def main():
             cur = pg_conn.cursor()
             cur.execute(create_sql)
             pg_conn.commit()
+
+        # Special-case: for `MasUser` we only want to create the table and NOT export/import data.
+        # This allows creating schema for sensitive tables without transferring rows.
+        # Determine if this table is in the create-only list (skip data export/import)
+        try:
+            tbl_l = (table or '').strip().lower()
+            schema_tbl = f"{schema}.{table}".strip().lower()
+            is_create_only = (tbl_l in create_only_set) or (schema_tbl in create_only_set)
+        except Exception:
+            is_create_only = False
+        if is_create_only:
+            print('Create-only table requested, skipping data export/import for', f'{schema}.{table}')
+            summary.append((schema, table, '(create-only)'))
+            continue
 
         # Export to CSV
         safe_name = f'{schema}_{table}'.replace('.', '_')
