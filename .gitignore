@@ -1,0 +1,12 @@
+# Ignore local environment files and exported data
+.env
+.env.local
+/migration_exports/
+/scripts/*.env
+
+# OS and editor files
+Thumbs.db
+*.log
+__pycache__/
+.vscode/
+/exports
