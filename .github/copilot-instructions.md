@@ -89,6 +89,21 @@ options:
                         Postgres target schema to create tables in (default:   
                         public)
 
+  Additional CLI option added by contributors:
+
+    --create-only CREATE_ONLY
+                          Comma-separated list of tables to only create schema for
+                          (no data). Use schema.table or table names. Matching is
+                          case-insensitive; unqualified names match across schemas.
+
+  Examples:
+
+    # Create only schema for MasUser (no data import)
+    python scripts/migrate_all.py --create-only MasUser --tables "[dbo].[MasUser]"
+
+    # Create schema for multiple tables (mix of schema-qualified and unqualified)
+    python scripts/migrate_all.py --create-only dbo.MasUser,MasDepartment --tables "[dbo].[MasUser],[dbo].[MasDepartment]"
+
 
 
 ## Integration points & external dependencies
@@ -119,5 +134,6 @@ options:
 - Use values from `.env.example` to infer variable names and default behaviors.
 - Reference the exact `pgloader` and `bcp` command patterns from `Readme.md` when producing scripts or examples.
 - Document any new external dependencies in a top-level `requirements.txt` or `README.md` and add install notes.
+ - When adding CLI flags (like `--create-only`), document them here and provide a small example showing typical usage.
 
 If anything in these instructions is unclear or missing (for example: preferred scripting language, CI steps, or a canonical test dataset), tell me what you want added and I will update this file.
